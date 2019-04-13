@@ -10,14 +10,22 @@
 
 #include "stm32f3xx_hal.h"
 
+#define READ_DATA_BIT 0b0100000000000000
+
 #define DATA_BITS 0b0011111111111111
+
 #define PARITY_BIT 0b1000000000000000
-#define READ_DATA_BITS 0b0100000000000000
 #define PARITY_BIT_POS 15
+
 #define TRANSMISSION_ERROR_BIT 0b0100000000000000
 #define TRANSMISSION_ERROR_BIT_POS 14
+
+
 #define AMOUNT_OF_UINT16_BYTES 2
+
 #define MAX_ENCODER_VALUE 16384
+#define MAX_DISPERSION_VALUE 200
+
 
 #define SENDING_FLAG_BIT 7
 #define ERROR_TRANSSMISION_FLAG_BIT 6
@@ -31,12 +39,17 @@ private:
 	uint16_t dataBufferRX;
 	uint16_t dataBufferTX;
 
+	uint16_t rotations;
 	uint16_t prev_read_angle;
 	uint32_t angle;
 
 	GPIO_TypeDef *nss_port;
 	uint16_t nss_pin;
 	SPI_HandleTypeDef *SPI;
+
+	int8_t checkRotation();
+	uint8_t isOnRange(int32_t lower_limit, int32_t higher_limit);
+
 
 	uint8_t spiCalcEvenParity(uint16_t value);
 	uint16_t reverseBytes16(uint16_t &nValue);

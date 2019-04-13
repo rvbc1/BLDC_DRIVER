@@ -37,10 +37,7 @@ uint32_t AS5048A::getAngle(){
 uint16_t AS5048A::readRawAngle(){
 	uint16_t read_angle = readData(AS5048A_ANGLE);
 
-	if((read_angle < 200) && (prev_read_angle > MAX_ENCODER_VALUE - 200))
-		angle += MAX_ENCODER_VALUE;
-	else if ((prev_read_angle < 200) && (read_angle > MAX_ENCODER_VALUE - 200))
-		angle -= MAX_ENCODER_VALUE;
+	checkRotation();
 
 	prev_read_angle = read_angle;
 	return read_angle;
@@ -50,7 +47,7 @@ uint16_t AS5048A::readData(uint16_t registerAddress){
 
 	uint16_t answer;
 
-	uint16_t command = READ_DATA_BITS;
+	uint16_t command = READ_DATA_BIT;
 	command = command | registerAddress;
 
 	command |= ((uint16_t)spiCalcEvenParity(command) << PARITY_BIT_POS);
@@ -79,7 +76,7 @@ uint16_t AS5048A::readData(uint16_t registerAddress){
 void AS5048A::startSendData(){
 	setFlag(SENDING_FLAG_BIT);
 	uint16_t registerAddress = AS5048A_ANGLE;
-	uint16_t command = READ_DATA_BITS;
+	uint16_t command = READ_DATA_BIT;
 	command = command | registerAddress;
 
 	command |= ((uint16_t)spiCalcEvenParity(command) << PARITY_BIT_POS);
@@ -88,8 +85,8 @@ void AS5048A::startSendData(){
 
 	dataBufferTX = command;
 	HAL_GPIO_WritePin(nss_port, nss_pin, GPIO_PIN_RESET);
-	HAL_SPI_TransmitReceive_DMA(SPI, (uint8_t *)(&dataBufferTX), (uint8_t *)(&dataBufferRX), AMOUNT_OF_UINT16_BYTES);
-
+	HAL_SPI_TransmitReceive_DMA(SPI, (uint8_t *)(&dataBufferTX),
+			(uint8_t *)(&dataBufferRX), AMOUNT_OF_UINT16_BYTES);
 
 }
 
@@ -111,12 +108,27 @@ void AS5048A::sendNextData(){
 	angle = readData;
 	HAL_GPIO_WritePin(nss_port, nss_pin, GPIO_PIN_RESET);
 	if(getFlag(SENDING_FLAG_BIT))
-		HAL_SPI_TransmitReceive_DMA(SPI, (uint8_t *)(&dataBufferTX), (uint8_t *)(&dataBufferRX), AMOUNT_OF_UINT16_BYTES);
+		HAL_SPI_TransmitReceive_DMA(SPI, (uint8_t *)(&dataBufferTX),
+				(uint8_t *)(&dataBufferRX), AMOUNT_OF_UINT16_BYTES);
 
 }
 
 void AS5048A::stopSendData(){
 	resetFlag(SENDING_FLAG_BIT);
+}
+
+int8_t AS5048A::checkRotation(){
+	int read_angle;
+	if((read_angle < MAX_DISPERSION_VALUE) &&
+			(prev_read_angle > MAX_ENCODER_VALUE - MAX_DISPERSION_VALUE))
+		rotations++;
+	else if ((prev_read_angle < MAX_DISPERSION_VALUE) &&
+			(read_angle > MAX_ENCODER_VALUE - MAX_DISPERSION_VALUE))
+		rotations--;
+}
+
+uint8_t AS5048A::isOnRange(int32_t lower_limit, int32_t higher_limit){
+
 }
 
 uint8_t AS5048A::spiCalcEvenParity(uint16_t value){

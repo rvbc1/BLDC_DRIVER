@@ -61,7 +61,7 @@ PCD_HandleTypeDef hpcd_USB_FS;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-uint8_t stop = 0;
+uint8_t button = 1;
 uint16_t angle                         = 0x3FFF;
 uint16_t answ;
 uint16_t datax;
@@ -85,7 +85,7 @@ static void MX_SPI2_Init(void);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-	stop = !stop;
+	button = !button;
 }
 
 
@@ -180,12 +180,19 @@ int main(void)
 
 
 	encoder_1->startSendData();
-	int i = 0;
+
 
 	while (1)
 	{
-		leds->showSET((uint8_t)(encoder_1->getAngle() / 2048));
+		if(button)
+			leds->showSET((uint8_t)(encoder_1->getAngle() / 2048));
+		else
+			leds->showRESET((uint8_t)(encoder_1->getAngle() / 2048));
 		HAL_Delay(100);
+		char buffer [20];
+		HAL_UART_Transmit(&huart4, (uint8_t*)buffer,
+				sprintf(buffer, "%d \n ", encoder_1->getAngle()), HAL_MAX_DELAY);
+
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
@@ -479,7 +486,6 @@ void _Error_Handler(char *file, int line)
 	/* User can add his own implementation to report the HAL error return state */
 	while(1)
 	{
-
 	}
   /* USER CODE END Error_Handler_Debug */
 }
