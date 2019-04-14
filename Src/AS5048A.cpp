@@ -174,5 +174,8 @@ void AS5048A::resetAllFlags(){
 	flags = 0;
 }
 
+uint16_t * AS5048A::getBufferRX(){
+	return &angle;
+}
 
 

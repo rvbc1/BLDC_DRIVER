@@ -41,7 +41,7 @@ private:
 
 	uint16_t rotations;
 	uint16_t prev_read_angle;
-	uint32_t angle;
+	uint16_t angle;
 
 	GPIO_TypeDef *nss_port;
 	uint16_t nss_pin;
@@ -67,8 +67,11 @@ public:
 	uint32_t getAngle();
 	uint16_t readRawAngle();
 	uint16_t readData(uint16_t registerAddress);
+
+
 	uint8_t getErrorReadFlag();
 	uint8_t getErrorParityFlag();
+	uint16_t *getBufferRX();
 
 	void startSendData();
 	void sendNextData();

@@ -47,6 +47,16 @@ void Led_Driver::blink(uint32_t duration_ms){
 	allOff();
 }
 
+void Led_Driver::showIntro(){ //JUST FOR FUN, NEED UPGRADE!
+	circleRightBack(GPIO_PIN_9, 100);
+
+	turnLeftSET(GPIO_PIN_9, 100);
+
+	blink(300);
+	HAL_Delay(300);
+	blink(300);
+}
+
 void Led_Driver::turnLeftSET(uint16_t start_led_pin, uint32_t duration_ms){
 	uint32_t old_pin;
 	for(pin = start_led_pin; pin >= start_pin; old_pin = pin, pin >>= 1){
@@ -137,7 +147,7 @@ void Led_Driver::showSET(uint16_t led_pin){
 
 void Led_Driver::showSET(uint8_t pos){
 	allOff();
-	pos %= 8;
+	++pos %= 8;
 	HAL_GPIO_WritePin(port, start_pin << pos, GPIO_PIN_SET);
 }
 
@@ -148,7 +158,7 @@ void Led_Driver::showRESET(uint16_t led_pin){
 
 void Led_Driver::showRESET(uint8_t pos){
 	allOn();
-	pos %= 8;
+	++pos %= 8;
 	HAL_GPIO_WritePin(port, start_pin << pos, GPIO_PIN_RESET);
 }
 

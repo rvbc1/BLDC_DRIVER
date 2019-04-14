@@ -27,6 +27,7 @@ public:
 	void allToggle();
 
 	void blink(uint32_t duration_ms);
+	void showIntro();
 
 	void turnRightSET(uint16_t start_led_pin, uint32_t duration_ms);
 	void turnLeftSET(uint16_t start_led_pin, uint32_t duration_ms);

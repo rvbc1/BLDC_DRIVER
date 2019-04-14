@@ -44,6 +44,7 @@
 
 #include "LedDriver.h"
 #include "AS5048A.h"
+#include "UartCom.h"
 
 /* USER CODE END Includes */
 
@@ -62,14 +63,15 @@ PCD_HandleTypeDef hpcd_USB_FS;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 uint8_t button = 1;
-uint16_t angle                         = 0x3FFF;
 uint16_t answ;
 uint16_t datax;
 uint16_t dataBufferRX;
 uint16_t dataBufferTX;
-const uint16_t AS5048A_ANGLE                         = 0x3FFF;
+
 
 AS5048A *encoder_1;
+UartCom *uartPC;
+Led_Driver *leds;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,28 +96,22 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-void reverseBytes16(uint16_t *nValue){
-	*nValue = (*nValue >> 8) | (*nValue << 8);
-}
+
 
 void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
 	encoder_1->sendNextData();
 }
 
-uint8_t spiCalcEvenParity(uint16_t value){
-	uint8_t cnt = 0;
-	uint8_t i;
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
+	uartPC->sendData();
 
-	for (i = 0; i < 15; i++)
-	{
-		if (value & 0x1)
-		{
-			cnt++;
-		}
-		value >>= 1;
-	}
-	return cnt & 0x1;
+	//SETING LEDS ON BOARD TO SHOW APPROXIMATELY ENGINE POSITION
+	if(button)
+		leds->showSET((uint8_t)(encoder_1->getAngle() / 2048));
+	else
+		leds->showRESET((uint8_t)(encoder_1->getAngle() / 2048));
 }
+
 
 
 
@@ -165,33 +161,19 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-	Led_Driver *leds = new Led_Driver(GPIOE, GPIO_PIN_8, GPIO_PIN_15);
+	leds = new Led_Driver(GPIOE, GPIO_PIN_8, GPIO_PIN_15);
+	leds->showIntro();
+
 	encoder_1 = new AS5048A(GPIOB, GPIO_PIN_12, &hspi2);
 
-
-	leds->circleRightBack(GPIO_PIN_9, 100);
-
-	leds->turnLeftSET(GPIO_PIN_9, 100);
-
-	leds->blink(300);
-	HAL_Delay(300);
-	leds->blink(300);
-
-
+	uartPC = new UartCom(&huart4, encoder_1->getBufferRX());
 
 	encoder_1->startSendData();
 
+	uartPC->sendData();
 
 	while (1)
 	{
-		if(button)
-			leds->showSET((uint8_t)(encoder_1->getAngle() / 2048));
-		else
-			leds->showRESET((uint8_t)(encoder_1->getAngle() / 2048));
-		HAL_Delay(100);
-		char buffer [20];
-		HAL_UART_Transmit(&huart4, (uint8_t*)buffer,
-				sprintf(buffer, "%d \n ", encoder_1->getAngle()), HAL_MAX_DELAY);
 
   /* USER CODE END WHILE */
 
@@ -336,7 +318,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
