@@ -57,6 +57,8 @@ DMA_HandleTypeDef hdma_spi2_rx;
 DMA_HandleTypeDef hdma_spi2_tx;
 
 UART_HandleTypeDef huart4;
+DMA_HandleTypeDef hdma_uart4_rx;
+DMA_HandleTypeDef hdma_uart4_tx;
 
 PCD_HandleTypeDef hpcd_USB_FS;
 
@@ -112,9 +114,9 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
 		leds->showRESET((uint8_t)(encoder_1->getAngle() / 2048));
 }
 
-
-
-
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+	uartPC->recieveNextData();
+}
 
 
 /* USER CODE END 0 */
@@ -166,11 +168,11 @@ int main(void)
 
 	encoder_1 = new AS5048A(GPIOB, GPIO_PIN_12, &hspi2);
 
-	uartPC = new UartCom(&huart4, encoder_1->getBufferRX());
-
 	encoder_1->startSendData();
 
-	uartPC->sendData();
+	uartPC = new UartCom(&huart4, encoder_1->getBufferRX());
+
+
 
 	while (1)
 	{
@@ -378,6 +380,7 @@ static void MX_DMA_Init(void)
 {
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
+  __HAL_RCC_DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
   /* DMA1_Channel4_IRQn interrupt configuration */
@@ -386,6 +389,12 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
+  /* DMA2_Channel3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel3_IRQn);
+  /* DMA2_Channel5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel5_IRQn);
 
 }
 
