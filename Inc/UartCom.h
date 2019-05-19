@@ -10,21 +10,24 @@
 
 #include "stm32f3xx_hal.h"
 
-#define DATA_FRAME_TX_SIZE 4
-#define DATA_FRAME_RX_SIZE 5
+#define DATA_FRAME_TX_SIZE 6
+#define DATA_FRAME_RX_SIZE 7
 
 #define START_CODE 0x40
 #define END_CODE 0x80
 
 struct dataFrameRX{
 	uint8_t start_transsmision_byte;
+	uint8_t code;
 	uint16_t angle;
+	uint16_t torque;
 	uint8_t end_transsmision_byte;
 } __attribute__ ((__packed__));
 
 struct dataFrameTX{
 	uint8_t start_transsmision_byte;
 	uint16_t angle;
+	int16_t real_angle;
 	uint8_t end_transsmision_byte;
 } __attribute__ ((__packed__));
 
@@ -32,12 +35,12 @@ class UartCom {
 private:
 	union frameRX_u{
 		uint8_t *bytes;
-		struct dataFrameTX *data;
+		struct dataFrameRX *data;
 	}frameRX;
 
 	union frameTX_u{
 		uint8_t *bytes;
-		struct dataFrameRX *data;
+		struct dataFrameTX *data;
 	}frameTX;
 
 	uint8_t send_next_data;
@@ -66,7 +69,12 @@ public:
 	void stopRecieveData();
 	void startRecieveData();
 
+	uint16_t getData();
+	uint16_t getAngle();
+
 	virtual ~UartCom();
+
+	int16_t real_angle;
 };
 
 #endif /* UARTCOM_H_ */

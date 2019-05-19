@@ -35,7 +35,8 @@ void UartCom::initFrameTX(){
 }
 
 void UartCom::updateFrameTX(){
-	frameTX.data->angle = *data_handler;
+	frameTX.data->angle = *data_handler / 22.75;
+	frameTX.data->real_angle = real_angle;
 }
 
 void UartCom::updateData(){
@@ -71,7 +72,6 @@ void UartCom::goodDataLoad(){
 
 }
 void UartCom::badDataLoad(){
-
 }
 
 uint8_t UartCom::isRecieveDataCorrect(){
@@ -94,6 +94,14 @@ void UartCom::stopRecieveData(){
 void UartCom::startRecieveData(){
 	recieve_next_data = true;
 	HAL_UART_Receive_DMA(uart_handler, frameRX.bytes, DATA_FRAME_RX_SIZE);
+}
+
+uint16_t UartCom::getData(){
+	return frameRX.data->torque;
+}
+
+uint16_t UartCom::getAngle(){
+	return frameRX.data->angle;
 }
 
 UartCom::~UartCom() {
