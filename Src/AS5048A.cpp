@@ -106,6 +106,8 @@ void AS5048A::sendNextData(){
 	}
 
 	angle = readData;
+	addAngleVector(angle);
+
 	HAL_GPIO_WritePin(nss_port, nss_pin, GPIO_PIN_RESET);
 	if(getFlag(SENDING_FLAG_BIT))
 		HAL_SPI_TransmitReceive_DMA(SPI, (uint8_t *)(&dataBufferTX),
@@ -176,6 +178,19 @@ void AS5048A::resetAllFlags(){
 
 uint16_t * AS5048A::getBufferRX(){
 	return &angle;
+}
+
+void AS5048A::addAngleVector(uint16_t angle){
+	if(angle_vector.size() < MAX_VECTOR_SIZE)
+		angle_vector.push_back(angle);
+}
+
+std::vector<uint16_t> AS5048A::getAngleVector(){
+	return angle_vector;
+}
+
+void AS5048A::clearAngleVector(){
+	angle_vector.clear();
 }
 
 

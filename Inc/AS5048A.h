@@ -9,6 +9,7 @@
 #define AS5048A_H_
 
 #include "stm32f3xx_hal.h"
+#include "vector"
 
 #define READ_DATA_BIT 0b0100000000000000
 
@@ -31,6 +32,8 @@
 #define ERROR_TRANSSMISION_FLAG_BIT 6
 #define ERROR_PARITY_FLAG_BIT 5
 
+#define MAX_VECTOR_SIZE 100
+
 
 class AS5048A {
 private:
@@ -42,6 +45,8 @@ private:
 	uint16_t rotations;
 	uint16_t prev_read_angle;
 	uint16_t angle;
+
+	std::vector<uint16_t> angle_vector;
 
 	GPIO_TypeDef *nss_port;
 	uint16_t nss_pin;
@@ -60,6 +65,8 @@ private:
 
 	void setErrorParityFlag();
 	void setErrorTransmissionFlag();
+
+	void addAngleVector(uint16_t angle);
 public:
 	AS5048A(GPIO_TypeDef *nss_port, uint16_t nss_pin, SPI_HandleTypeDef *SPI);
 	virtual ~AS5048A();
@@ -72,6 +79,10 @@ public:
 	uint8_t getErrorReadFlag();
 	uint8_t getErrorParityFlag();
 	uint16_t *getBufferRX();
+
+	std::vector<uint16_t> getAngleVector();
+
+	void clearAngleVector();
 
 	void startSendData();
 	void sendNextData();

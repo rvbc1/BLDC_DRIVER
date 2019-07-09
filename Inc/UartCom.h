@@ -16,6 +16,11 @@
 #define START_CODE 0x40
 #define END_CODE 0x80
 
+struct dataTX{
+	uint16_t angle;
+	int16_t real_angle;
+} __attribute__ ((__packed__));
+
 struct dataFrameRX{
 	uint8_t start_transsmision_byte;
 	uint8_t code;
@@ -26,8 +31,7 @@ struct dataFrameRX{
 
 struct dataFrameTX{
 	uint8_t start_transsmision_byte;
-	uint16_t angle;
-	int16_t real_angle;
+	dataTX data;
 	uint8_t end_transsmision_byte;
 } __attribute__ ((__packed__));
 
@@ -43,6 +47,8 @@ private:
 		struct dataFrameTX *data;
 	}frameTX;
 
+	dataTX temporary_data_buffer;
+
 	uint8_t send_next_data;
 	uint8_t recieve_next_data;
 
@@ -54,7 +60,6 @@ private:
 	void initFrameRX();
 	void initFrameTX();
 	void updateFrameTX();
-	void updateData();
 
 	void goodDataLoad();
 	void badDataLoad();
@@ -71,6 +76,8 @@ public:
 
 	uint16_t getData();
 	uint16_t getAngle();
+
+	dataTX *getDataBuffer();
 
 	virtual ~UartCom();
 

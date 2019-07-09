@@ -82,7 +82,7 @@ uint8_t direction;
 uint16_t answ;
 uint16_t datax;
 uint16_t dataBufferRX;
-uint16_t dataBufferTX;
+dataTX *dataBufferTX;
 
 
 AS5048A *encoder_1;
@@ -104,6 +104,8 @@ volatile uint32_t* v_reg;
 volatile uint32_t* w_reg;
 
 volatile uint32_t* speed_reg;
+
+volatile uint32_t* speed_timer_reg;
 
 uint32_t rotate;
 
@@ -133,32 +135,11 @@ static void MX_TIM16_Init(void);
 /* Private function prototypes -----------------------------------------------*/
 extern "C" void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
-uint8_t isOnRange(int32_t value, int32_t mid_range, int32_t range){
-	if( (value >= mid_range - range) && (value <= mid_range + range) )
-		return true;
-	else return false;
-}
 
-double ToDegrees(double x, double phase_shift){
-
-
-	x=M_PI*(x+phase_shift)/180;
-	x=x+phase_shift;
-
-	return x;
-}
-
-void GenerateSPWM(int max_duty, double m, int S[]){
-
-	double x=0;
+void GenerateSPWM(int max_duty, int S[]){
 	for(int i=0; i<ANGLE; i++){
-
-		//S[i]=max_duty*(sin(ToDegrees(x,0))+m*sin(3*(ToDegrees(x,0))))/2+ max_duty/2;
 		S[i]= max_duty*(sin(degreesToRadians(i))) + max_duty;
-		//S[i] = 100;
-		x = x + 1;
 	}
-
 }
 
 void setComuteAngle(int16_t angle){
@@ -183,17 +164,19 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
 
 void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
+	dataBufferTX->angle = encoder_1->getAngle();
+
 	encoder_1->sendNextData();
+	//SETING LEDS ON BOARD TO SHOW APPROXIMATELY ENGINE POSITION ~~~NOW TO SLOW
+
+//	if(button)
+//		leds->showSET((uint8_t)(encoder_1->getAngle() / 2048));
+//	else
+//		leds->showRESET((uint8_t)(encoder_1->getAngle() / 2048));
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
 	uartPC->sendData();
-
-	//SETING LEDS ON BOARD TO SHOW APPROXIMATELY ENGINE POSITION
-	if(button)
-		leds->showSET((uint8_t)(encoder_1->getAngle() / 2048));
-	else
-		leds->showRESET((uint8_t)(encoder_1->getAngle() / 2048));
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
@@ -213,9 +196,32 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 }
 
+uint32_t prev_time = HAL_GetTick();
+
+void calculateSpeed(){
+	std::vector<uint16_t> angle_vector = encoder_1->getAngleVector();
+
+	uint32_t arvg_speed = 0;
+
+	for(uint16_t i = 0; i < angle_vector.size(); i++){
+		arvg_speed += angle_vector[i];
+	}
+
+	arvg_speed /= angle_vector.size();
+
+	uint32_t time = HAL_GetTick();
+
+//	arvg_speed /=
+
+	dataBufferTX->real_angle = arvg_speed;
+
+	encoder_1->clearAngleVector();
+}
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-	if(htim->Instance == htim17.Instance){
-		//	button = !button;
+	if(htim->Instance == htim16.Instance){
+		calculateSpeed();
+	} else if (htim->Instance == htim17.Instance){
 		if(direction == DIRECTION_LEFT)
 			setComuteAngle(U + 1);
 		else if (direction == DIRECTION_RIGHT)
@@ -223,19 +229,16 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 		else{
 			setComuteAngle(U);
 		}
-	} else if (htim->Instance == htim16.Instance){
-		SP++;
-		SP %= 1635;
 	}
 }
 
-int distance(int a, int b) {
-	int phi = int(abs(b - a)) % ANG;       // This is either the distance or 360 - distance
-	int distance = phi > HANG ? ANG - phi : phi;
-	int sign = (a - b >= 0 && a - b <= HANG) || (a - b <= -HANG && a- b>= -ANG) ? 1 : -1; distance *= sign;
 
-	return distance;
+void initSpeedTimer(TIM_HandleTypeDef *htim){
+	htim->Instance->ARR = 1000;
+	htim->Instance->PSC = 32;
 }
+
+
 
 
 /* USER CODE END 0 */
@@ -284,6 +287,9 @@ int main(void)
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 
+
+	initSpeedTimer(&htim17);
+
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -299,6 +305,7 @@ int main(void)
 	encoder_1->startSendData();
 
 	uartPC = new UartCom(&huart4, encoder_1->getBufferRX());
+	dataBufferTX = uartPC->getDataBuffer();
 	uartPC->startRecieveData();
 
 	rotate= 0;
@@ -312,8 +319,8 @@ int main(void)
 	U=0;
 	V=U+120;
 	W=V+120;
-	GenerateSPWM(50,0.2,SPWM_strong);
-	GenerateSPWM(50,0.2,SPWM_light);
+	GenerateSPWM(50,SPWM_strong);
+	GenerateSPWM(50,SPWM_light);
 	SPWM = SPWM_strong;
 
 
@@ -323,11 +330,8 @@ int main(void)
 
 
 	HAL_TIM_Base_Start_IT(&htim16);
-	//HAL_TIM_Base_Start_IT(&htim17);
+	HAL_TIM_Base_Start_IT(&htim17);
 	SP = 50;
-	uint8_t flag = 0;
-	int steep = 1;
-	int i =0;
 	while (1)
 	{
 
@@ -383,11 +387,11 @@ int main(void)
 		/* USER CODE BEGIN 3 */
 		//Wybór kierunku
 
-		setComuteAngle(U+1);
-
-		for(int i =0; i < 170; i++){
-			;
-		}
+//		setComuteAngle(U+1);
+//
+//		for(int i =0; i < 300; i++){
+//			;
+//		}
 
 	//	HAL_Delay(1);
 	}

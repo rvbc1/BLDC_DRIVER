@@ -35,13 +35,9 @@ void UartCom::initFrameTX(){
 }
 
 void UartCom::updateFrameTX(){
-	frameTX.data->angle = *data_handler / 22.75;
-	frameTX.data->real_angle = *data_handler;
+	frameTX.data->data = temporary_data_buffer;
 }
 
-void UartCom::updateData(){
-	frameTX.data->angle = *data_handler;
-}
 
 void UartCom::sendData(){
 	updateFrameTX();
@@ -102,6 +98,10 @@ uint16_t UartCom::getData(){
 
 uint16_t UartCom::getAngle(){
 	return frameRX.data->angle;
+}
+
+dataTX * UartCom::getDataBuffer(){
+	return &temporary_data_buffer;
 }
 
 UartCom::~UartCom() {
