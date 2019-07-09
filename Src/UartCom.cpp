@@ -36,7 +36,7 @@ void UartCom::initFrameTX(){
 
 void UartCom::updateFrameTX(){
 	frameTX.data->angle = *data_handler / 22.75;
-	frameTX.data->real_angle = real_angle;
+	frameTX.data->real_angle = *data_handler;
 }
 
 void UartCom::updateData(){
