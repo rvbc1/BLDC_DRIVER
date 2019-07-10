@@ -91,6 +91,8 @@ void AS5048A::startSendData(){
 }
 
 void AS5048A::sendNextData(){
+	resetFlag(ERROR_TRANSSMISION_FLAG_BIT);
+
 	HAL_GPIO_WritePin(nss_port, nss_pin, GPIO_PIN_SET);
 
 	reverseBytes16(dataBufferRX);
@@ -105,8 +107,10 @@ void AS5048A::sendNextData(){
 		setErrorParityFlag();
 	}
 
-	angle = readData;
-	addAngleVector(angle);
+	//if(!getFlag(ERROR_TRANSSMISION_FLAG_BIT)){
+		angle = readData;
+		addAngleVector(angle);
+//	}
 
 	HAL_GPIO_WritePin(nss_port, nss_pin, GPIO_PIN_RESET);
 	if(getFlag(SENDING_FLAG_BIT))

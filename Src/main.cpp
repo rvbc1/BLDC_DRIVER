@@ -46,6 +46,7 @@
 #include "AS5048A.h"
 #include "UartCom.h"
 #include "math.h"
+#include <algorithm>
 
 #define ANGLE 360
 #define DIRECTION_LEFT 2
@@ -93,7 +94,7 @@ int SPWM_strong [ANGLE];
 int SPWM_light [ANGLE];
 int *SPWM;
 
-int SP;
+double SP;
 
 int32_t U;
 int32_t V;
@@ -164,7 +165,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
 
 void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
-	dataBufferTX->angle = encoder_1->getAngle();
+	//dataBufferTX->angle = encoder_1->getAngle();
 
 	encoder_1->sendNextData();
 	//SETING LEDS ON BOARD TO SHOW APPROXIMATELY ENGINE POSITION ~~~NOW TO SLOW
@@ -185,7 +186,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	//HAL_TIM_Base_DeInit(&htim17);
 	//HAL_TIM_Base_Stop_IT(&htim17);
 	//htim17.Init.Period = uartPC->getAngle();
-	*speed_reg = uartPC->getData();
+	SP = uartPC->getData();
 	//TIM17->ARR = uartPC->getData() / 10;
 	//HAL_TIM_Base_Init(&htim17);
 	//HAL_TIM_Base_Start_IT(&htim17);
@@ -197,6 +198,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 }
 
 uint32_t prev_time = HAL_GetTick();
+uint16_t prev_angle = 0;
+//std::vector<double> speed_vector (50,100.0);
 
 void calculateSpeed(){
 	std::vector<uint16_t> angle_vector = encoder_1->getAngleVector();
@@ -210,12 +213,49 @@ void calculateSpeed(){
 	arvg_speed /= angle_vector.size();
 
 	uint32_t time = HAL_GetTick();
+	uint32_t dt = time - prev_time;
+	prev_time = time;
 
+
+	uint16_t angle = encoder_1->getAngle();
+	uint16_t dAngle = angle - prev_angle;
+
+
+    if(angle < prev_angle){
+        dAngle = std::min(abs(angle - prev_angle), abs(angle + ANG - prev_angle));
+    } else {
+        dAngle = std::min(angle - prev_angle, abs(angle - ANG - prev_angle));
+    }
+
+
+	prev_angle = angle;
+	//double SP = 50.0;
+	double Kp = 20.0;
+
+	double speed = (double)dAngle / dt;
+
+	double e = SP - speed;
+
+
+	htim17.Instance->ARR = 2000 - Kp * e;
+
+//	speed *= 1;
 //	arvg_speed /=
 
-	dataBufferTX->real_angle = arvg_speed;
+//	speed_vector.erase (speed_vector.begin());
+//	speed_vector.push_back(speed);
+//
+//	double av_speed = 0;
+//	for(int i = 0; i < speed_vector.size(); i++){
+//		av_speed += speed_vector[i];
+//	}
+//
+//	av_speed /= speed_vector.size();
 
-	encoder_1->clearAngleVector();
+	dataBufferTX->real_angle = speed;
+	dataBufferTX->angle = e;
+
+//	encoder_1->clearAngleVector();
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
@@ -234,8 +274,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
 
 void initSpeedTimer(TIM_HandleTypeDef *htim){
-	htim->Instance->ARR = 1000;
-	htim->Instance->PSC = 32;
+	htim->Instance->ARR = 500;
+	htim->Instance->PSC = 16;
 }
 
 
@@ -319,7 +359,7 @@ int main(void)
 	U=0;
 	V=U+120;
 	W=V+120;
-	GenerateSPWM(50,SPWM_strong);
+	GenerateSPWM(60,SPWM_strong);
 	GenerateSPWM(50,SPWM_light);
 	SPWM = SPWM_strong;
 
@@ -331,7 +371,6 @@ int main(void)
 
 	HAL_TIM_Base_Start_IT(&htim16);
 	HAL_TIM_Base_Start_IT(&htim17);
-	SP = 50;
 	while (1)
 	{
 
@@ -600,7 +639,7 @@ static void MX_TIM16_Init(void)
 {
 
 	htim16.Instance = TIM16;
-	htim16.Init.Prescaler = 640;
+	htim16.Init.Prescaler = 64;
 	htim16.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim16.Init.Period = 1000;
 	htim16.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
