@@ -80,10 +80,14 @@ PCD_HandleTypeDef hpcd_USB_FS;
 /* Private variables ---------------------------------------------------------*/
 uint8_t button = 1;
 uint8_t direction;
+
+uint8_t start_change_fi = false;
 uint16_t answ;
 uint16_t datax;
 uint16_t dataBufferRX;
 dataTX *dataBufferTX;
+
+uint16_t zero_angle;
 
 
 AS5048A *encoder_1;
@@ -95,6 +99,10 @@ int SPWM_light [ANGLE];
 int *SPWM;
 
 double SP;
+double ep = 0.0;
+double e;
+
+double ster = 0.0;
 
 int32_t U;
 int32_t V;
@@ -148,6 +156,17 @@ void setComuteAngle(int16_t angle){
 	V = U+120; 	if(V >= ANGLE) V -= ANGLE; else if(V < 0) V += ANGLE-1;
 	W = V+120; 	if(W >= ANGLE) W -= ANGLE; else if(W < 0) W += ANGLE-1;
 
+	*u_reg = (uint32_t) SPWM[U] * ster;
+	*v_reg = (uint32_t) SPWM[V] * ster;
+	*w_reg = (uint32_t) SPWM[W] * ster;
+
+}
+
+void setComuteAngleDef(int16_t angle){
+	U = angle; 	if(U >= ANGLE) U -= ANGLE; else if(U < 0) U += ANGLE-1;
+	V = U+120; 	if(V >= ANGLE) V -= ANGLE; else if(V < 0) V += ANGLE-1;
+	W = V+120; 	if(W >= ANGLE) W -= ANGLE; else if(W < 0) W += ANGLE-1;
+
 	*u_reg = (uint32_t) SPWM[U];
 	*v_reg = (uint32_t) SPWM[V];
 	*w_reg = (uint32_t) SPWM[W];
@@ -165,15 +184,26 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
 
 void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
+	if(start_change_fi){
+		uint16_t set = 0;
+		set = (double) encoder_1->getAngle() / 6.5;
+		set %= 360;
+		set -= zero_angle;
+		set += 90;
+
+		setComuteAngle(set);
+	}
 	//dataBufferTX->angle = encoder_1->getAngle();
+
+	//zero_angle;
 
 	encoder_1->sendNextData();
 	//SETING LEDS ON BOARD TO SHOW APPROXIMATELY ENGINE POSITION ~~~NOW TO SLOW
 
-//	if(button)
-//		leds->showSET((uint8_t)(encoder_1->getAngle() / 2048));
-//	else
-//		leds->showRESET((uint8_t)(encoder_1->getAngle() / 2048));
+	//	if(button)
+	//		leds->showSET((uint8_t)(encoder_1->getAngle() / 2048));
+	//	else
+	//		leds->showRESET((uint8_t)(encoder_1->getAngle() / 2048));
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
@@ -221,41 +251,52 @@ void calculateSpeed(){
 	uint16_t dAngle = angle - prev_angle;
 
 
-    if(angle < prev_angle){
-        dAngle = std::min(abs(angle - prev_angle), abs(angle + ANG - prev_angle));
-    } else {
-        dAngle = std::min(angle - prev_angle, abs(angle - ANG - prev_angle));
-    }
+	if(angle < prev_angle){
+		dAngle = std::min(abs(angle - prev_angle), abs(angle + ANG - prev_angle));
+	} else {
+		dAngle = std::min(angle - prev_angle, abs(angle - ANG - prev_angle));
+	}
 
 
 	prev_angle = angle;
 	//double SP = 50.0;
-	double Kp = 20.0;
+	double Kp = 0.1;
+	double Ti = 1.5;
 
 	double speed = (double)dAngle / dt;
 
-	double e = SP - speed;
+	e = SP - speed;
+
+	double C;
+	//czlon I
+	C = ((e + ep)/2)*dt;
+
+	C *= Ti;
+
+	ster = Kp*(e + C);
+
+	ep = e;
 
 
-	htim17.Instance->ARR = 2000 - Kp * e;
+//	htim17.Instance->ARR = 2000 - Kp * e;
 
-//	speed *= 1;
-//	arvg_speed /=
+	//	speed *= 1;
+	//	arvg_speed /=
 
-//	speed_vector.erase (speed_vector.begin());
-//	speed_vector.push_back(speed);
-//
-//	double av_speed = 0;
-//	for(int i = 0; i < speed_vector.size(); i++){
-//		av_speed += speed_vector[i];
-//	}
-//
-//	av_speed /= speed_vector.size();
+	//	speed_vector.erase (speed_vector.begin());
+	//	speed_vector.push_back(speed);
+	//
+	//	double av_speed = 0;
+	//	for(int i = 0; i < speed_vector.size(); i++){
+	//		av_speed += speed_vector[i];
+	//	}
+	//
+	//	av_speed /= speed_vector.size();
 
 	dataBufferTX->real_angle = speed;
 	dataBufferTX->angle = e;
 
-//	encoder_1->clearAngleVector();
+	//	encoder_1->clearAngleVector();
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
@@ -359,7 +400,7 @@ int main(void)
 	U=0;
 	V=U+120;
 	W=V+120;
-	GenerateSPWM(60,SPWM_strong);
+	GenerateSPWM(50,SPWM_strong);
 	GenerateSPWM(50,SPWM_light);
 	SPWM = SPWM_strong;
 
@@ -370,9 +411,36 @@ int main(void)
 
 
 	HAL_TIM_Base_Start_IT(&htim16);
-	HAL_TIM_Base_Start_IT(&htim17);
+	//HAL_TIM_Base_Start_IT(&htim17);
+
+	setComuteAngleDef(0);
+	HAL_Delay(1000);
+	zero_angle = encoder_1->getAngle();
+	//
+	zero_angle = (double)zero_angle / 6.5;
+	//
+	zero_angle %= 360;
+
+	start_change_fi = true;
+
+	//dataBufferTX->angle = zero_angle;
+
+	//	for(int i =0; i < 7; i++){
+	//setComuteAngle(90);
+	//		HAL_Delay(500);
+	//		setComuteAngle(180);
+	//		HAL_Delay(500);
+	//		setComuteAngle(270);
+	//		HAL_Delay(500);
+	//		setComuteAngle(0);
+	//		HAL_Delay(500);
+
+
+	//	}
+
 	while (1)
 	{
+
 
 		//		U++;
 		//		if(U >= 359) U = 0;
@@ -426,13 +494,13 @@ int main(void)
 		/* USER CODE BEGIN 3 */
 		//Wybór kierunku
 
-//		setComuteAngle(U+1);
-//
-//		for(int i =0; i < 300; i++){
-//			;
-//		}
+		//		setComuteAngle(U+1);
+		//
+		//		for(int i =0; i < 300; i++){
+		//			;
+		//		}
 
-	//	HAL_Delay(1);
+		//	HAL_Delay(1);
 	}
 	/* USER CODE END 3 */
 
